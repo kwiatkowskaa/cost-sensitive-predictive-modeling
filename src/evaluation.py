@@ -60,7 +60,7 @@ def cross_val_eval(model, X, y, n_features, model_name):
     Evaluate the model using cross-validation and return summary metrics.
     """
 
-    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
     fold_results = []
 
@@ -81,7 +81,11 @@ def cross_val_eval(model, X, y, n_features, model_name):
 
     summary["accuracy_std"] = df["accuracy"].std()
     summary["precision_std"] = df["precision"].std()
+    summary["recall_std"] = df["recall"].std()
+    summary["f1_std"] = df["f1"].std()
+    summary["profit_std"] = df["profit"].std()
     summary["score_std"] = df["score"].std()
+
 
     summary["model"] = model_name
     summary["n_features"] = n_features
