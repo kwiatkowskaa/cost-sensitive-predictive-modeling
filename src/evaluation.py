@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import StratifiedKFold
 
@@ -55,7 +56,7 @@ def evaluate_model(y_true, y_pred, n_features, model_name=None):
     return metrics
 
 
-def cross_val_eval(model, X, y, n_features, model_name):
+def cross_val_eval(model, X, y, n_features, model_name, threshold=None, top_n=1000):
     """
     Evaluate the model using cross-validation and return summary metrics.
     """
@@ -70,8 +71,15 @@ def cross_val_eval(model, X, y, n_features, model_name):
         y_tr, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
         model.fit(X_tr, y_tr)
-        preds = model.predict(X_val)
 
+        scores = get_prediction_scores(model, X_val)
+        
+        if top_n is not None:
+            preds = top_n_predictions(scores, top_n)
+
+        elif threshold is not None:
+            preds = (scores >= threshold).astype(int)
+        
         metrics = evaluate_model(y_val, preds, n_features, model_name)
         fold_results.append(metrics)
 
@@ -79,15 +87,47 @@ def cross_val_eval(model, X, y, n_features, model_name):
 
     summary = df.mean(numeric_only=True).to_dict()
 
-    summary["accuracy_std"] = df["accuracy"].std()
-    summary["precision_std"] = df["precision"].std()
-    summary["recall_std"] = df["recall"].std()
-    summary["f1_std"] = df["f1"].std()
-    summary["profit_std"] = df["profit"].std()
+    summary["accuracy_std"] = df["accuracy"].std() 
+    summary["precision_std"] = df["precision"].std() 
+    summary["recall_std"] = df["recall"].std() 
+    summary["f1_std"] = df["f1"].std() 
+    summary["profit_std"] = df["profit"].std() 
     summary["score_std"] = df["score"].std()
-
 
     summary["model"] = model_name
     summary["n_features"] = n_features
+    summary["threshold"] = threshold
+    summary["top_n"] = top_n
 
     return summary
+
+
+def get_prediction_scores(model, X):
+
+    # probability models
+    if hasattr(model, "predict_proba"):
+        scores = model.predict_proba(X)[:, 1]
+
+    # margin-based models
+    elif hasattr(model, "decision_function"):
+        scores = model.decision_function(X)
+
+    # fallback
+    else:
+        scores = model.predict(X)
+
+    return scores
+
+
+def top_n_predictions(scores, top_n):
+    """
+    Select top_n observations with highest scores.
+    """
+
+    preds = np.zeros(len(scores), dtype=int)
+
+    top_idx = np.argsort(scores)[::-1][:top_n]
+
+    preds[top_idx] = 1
+
+    return preds
