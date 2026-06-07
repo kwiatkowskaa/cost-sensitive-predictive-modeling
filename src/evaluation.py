@@ -18,7 +18,7 @@ def scoring_function(y_true, y_pred, n_features):
 
 def profit_function(y_true, y_pred):
     """
-    Scoring function for evaluating profit withou feature cost.
+    Scoring function for evaluating profit without feature cost.
     """
     tp = ((y_true == 1) & (y_pred == 1)).sum()
     fp = ((y_true == 0) & (y_pred == 1)).sum()
@@ -75,7 +75,9 @@ def cross_val_eval(model, X, y, n_features, model_name, threshold=None, top_n=10
         scores = get_prediction_scores(model, X_val)
         
         if top_n is not None:
-            preds = top_n_predictions(scores, top_n)
+            # preds = top_n_predictions(scores, top_n) # old version
+            effective_top_n = int(top_n * len(X_val) / len(X))
+            preds = top_n_predictions(scores, effective_top_n)
 
         elif threshold is not None:
             preds = (scores >= threshold).astype(int)
