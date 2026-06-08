@@ -169,3 +169,63 @@ def top_n_predictions(scores, top_n):
     preds[top_idx] = 1
 
     return preds
+
+def evaluate_features_XGBClassifier(features, X, y):
+
+    cv = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42
+    )
+
+    oof_probs = np.zeros(len(y))
+
+    for train_idx, valid_idx in cv.split(X, y):
+
+        X_tr = X.iloc[train_idx][features]
+        y_tr = y.iloc[train_idx]
+
+        X_val = X.iloc[valid_idx][features]
+
+        model = XGBClassifier(
+            n_estimators=300,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            eval_metric="logloss",
+            random_state=42
+        )
+
+        model.fit(X_tr, y_tr)
+
+        oof_probs[valid_idx] = model.predict_proba(X_val)[:,1]
+
+    auc = roc_auc_score(y, oof_probs)
+
+    preds = (oof_probs > 0.5).astype(int)
+
+    acc = accuracy_score(y, preds)
+    prec = precision_score(y, preds)
+    rec = recall_score(y, preds)
+    f1 = f1_score(y, preds)
+
+    cm = confusion_matrix(y, preds)
+
+    profit, top_n = calculate_profit(y, oof_probs)
+
+    score = profit - 200 * len(features)
+
+    return {
+        "n_features": len(features),
+        "auc": auc,
+        "accuracy": acc,
+        "precision": prec,
+        "recall": rec,
+        "f1": f1,
+        "profit": profit,
+        "score": score,
+        "top_n": top_n,
+        "confusion_matrix": cm,
+        "oof_probs": oof_probs
+    }
