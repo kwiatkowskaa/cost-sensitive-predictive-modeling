@@ -5,7 +5,7 @@ from sklearn.model_selection import StratifiedKFold
 from xgboost import XGBClassifier
 
 
-def scoring_function(y_true, y_pred, n_features):
+def scoring_function(y_true, y_pred, n_features, scale_factor = 1):
     """
     Scoring function for evaluating the performance
     of a binary classification model.
@@ -13,7 +13,10 @@ def scoring_function(y_true, y_pred, n_features):
     tp = ((y_true == 1) & (y_pred == 1)).sum()
     fp = ((y_true == 0) & (y_pred == 1)).sum()
 
-    score = tp * 10 - fp * 5 - n_features * 200
+    # score = tp * 10 - fp * 5 - n_features * 200
+    feature_cost = n_features * 200 * scale_factor
+    score = tp * 10 - fp * 5 - feature_cost
+
     return score
 
 
@@ -69,7 +72,7 @@ def classification_metrics(y_true, y_pred):
     }
 
 
-def evaluate_model(y_true, y_pred, n_features, model_name=None):
+def evaluate_model(y_true, y_pred, n_features, model_name=None, scale_factor = 1):
     """
     Evaluate the model using both classification metrics and scoring functions
     """
@@ -77,7 +80,7 @@ def evaluate_model(y_true, y_pred, n_features, model_name=None):
 
     metrics.update({
         "profit": profit_function(y_true, y_pred),
-        "score": scoring_function(y_true, y_pred, n_features),
+        "score": scoring_function(y_true, y_pred, n_features, scale_factor),
         "n_features": n_features,
         "model": model_name
     })
@@ -85,7 +88,7 @@ def evaluate_model(y_true, y_pred, n_features, model_name=None):
     return metrics
 
 
-def cross_val_eval(model, X, y, n_features, model_name, threshold=None, top_n=1000):
+def cross_val_eval(model, X, y, n_features, model_name, threshold=None, top_n=1000, scaled_features=False):
     """
     Evaluate the model using cross-validation and return summary metrics.
     """
@@ -102,6 +105,10 @@ def cross_val_eval(model, X, y, n_features, model_name, threshold=None, top_n=10
         model.fit(X_tr, y_tr)
 
         scores = get_prediction_scores(model, X_val)
+        if scaled_features:
+            scale_factor = len(X_val) / len(X)
+        else:
+            scale_factor = 1
         
         if top_n is not None:
             # preds = top_n_predictions(scores, top_n) # old version
@@ -111,7 +118,7 @@ def cross_val_eval(model, X, y, n_features, model_name, threshold=None, top_n=10
         elif threshold is not None:
             preds = (scores >= threshold).astype(int)
         
-        metrics = evaluate_model(y_val, preds, n_features, model_name)
+        metrics = evaluate_model(y_val, preds, n_features, model_name, scale_factor)
         fold_results.append(metrics)
 
     df = pd.DataFrame(fold_results)
